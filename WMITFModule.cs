@@ -24,6 +24,7 @@ namespace WMITF
             new Hook(typeof(PlayerItem).GetMethod("OnExitRange", BindingFlags.Public | BindingFlags.Instance), typeof(WMITFModule).GetMethod("WMITFHideModA"));
             new Hook(typeof(Gun).GetMethod("OnEnteredRange", BindingFlags.Public | BindingFlags.Instance), typeof(WMITFModule).GetMethod("WMITFShowModG"));
             new Hook(typeof(Gun).GetMethod("OnExitRange", BindingFlags.Public | BindingFlags.Instance), typeof(WMITFModule).GetMethod("WMITFHideModG"));
+            new Hook(typeof(Gun).GetMethod("Interact", BindingFlags.Public | BindingFlags.Instance), typeof(WMITFModule).GetMethod("WMITFHideModG"));
             new Hook(typeof(RewardPedestal).GetMethod("OnEnteredRange", BindingFlags.Public | BindingFlags.Instance), typeof(WMITFModule).GetMethod("WMITFShowModR"));
             new Hook(typeof(RewardPedestal).GetMethod("OnExitRange", BindingFlags.Public | BindingFlags.Instance), typeof(WMITFModule).GetMethod("WMITFHideModR"));
             new Hook(typeof(EncounterDatabaseEntry).GetMethod("GetModifiedLongDescription", BindingFlags.Public | BindingFlags.Instance), typeof(WMITFModule).GetMethod("WMITFAddAmmonomiconModName"));
