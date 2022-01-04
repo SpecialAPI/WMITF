@@ -123,7 +123,10 @@ namespace WMITF
                     return result;
                 }
             }
-            WMITFModItemDict.Add(item, frames[current].GetMethod().DeclaringType.Assembly);
+            if (!WMITFModItemDict.ContainsKey(item))
+            {
+                WMITFModItemDict.Add(item, frames[current].GetMethod().DeclaringType.Assembly);
+            }
             if (WMITFFullyInited)
             {
                 WMITFGetActualModItemDict();
