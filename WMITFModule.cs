@@ -8,36 +8,35 @@ using System.Reflection;
 using System.Diagnostics;
 using System.Collections;
 using System.IO;
+using BepInEx;
+using BepInEx.Bootstrap;
+using HarmonyLib;
 
 namespace WMITF
 {
-    public class WMITFModule : ETGModule
+    [HarmonyPatch]
+    [BepInDependency("etgmodding.etg.mtgapi")]
+    [BepInPlugin(GUID, NAME, VERSION)]
+    public class WMITFModule : BaseUnityPlugin
     {
-        public override void Init()
+        public const string GUID = "spapi.etg.wmitf";
+        public const string NAME = "What Mod Is This From (WMITF)";
+        public const string VERSION = "1.0.0";
+
+        public void Awake()
         {
             WMITFEnabled = true;
             WMITFModItemDict = new Dictionary<PickupObject, Assembly>();
-            new Hook(typeof(ItemDB).GetMethod("Add", new Type[] { typeof(PickupObject), typeof(bool), typeof(string) }), typeof(WMITFModule).GetMethod("WMITFAddItemToDict"));
-            new Hook(typeof(PassiveItem).GetMethod("OnEnteredRange", BindingFlags.Public | BindingFlags.Instance), typeof(WMITFModule).GetMethod("WMITFShowModP"));
-            new Hook(typeof(PassiveItem).GetMethod("OnExitRange", BindingFlags.Public | BindingFlags.Instance), typeof(WMITFModule).GetMethod("WMITFHideModP"));
-            new Hook(typeof(PlayerItem).GetMethod("OnEnteredRange", BindingFlags.Public | BindingFlags.Instance), typeof(WMITFModule).GetMethod("WMITFShowModA"));
-            new Hook(typeof(PlayerItem).GetMethod("OnExitRange", BindingFlags.Public | BindingFlags.Instance), typeof(WMITFModule).GetMethod("WMITFHideModA"));
-            new Hook(typeof(Gun).GetMethod("OnEnteredRange", BindingFlags.Public | BindingFlags.Instance), typeof(WMITFModule).GetMethod("WMITFShowModG"));
-            new Hook(typeof(Gun).GetMethod("OnExitRange", BindingFlags.Public | BindingFlags.Instance), typeof(WMITFModule).GetMethod("WMITFHideModG"));
-            new Hook(typeof(Gun).GetMethod("Interact", BindingFlags.Public | BindingFlags.Instance), typeof(WMITFModule).GetMethod("WMITFHideModG"));
-            new Hook(typeof(RewardPedestal).GetMethod("OnEnteredRange", BindingFlags.Public | BindingFlags.Instance), typeof(WMITFModule).GetMethod("WMITFShowModR"));
-            new Hook(typeof(RewardPedestal).GetMethod("OnExitRange", BindingFlags.Public | BindingFlags.Instance), typeof(WMITFModule).GetMethod("WMITFHideModR"));
-            new Hook(typeof(EncounterDatabaseEntry).GetMethod("GetModifiedLongDescription", BindingFlags.Public | BindingFlags.Instance), typeof(WMITFModule).GetMethod("WMITFAddAmmonomiconModName"));
-            WMITFRewardPedestalSpriteInfo = typeof(RewardPedestal).GetField("m_itemDisplaySprite", BindingFlags.NonPublic | BindingFlags.Instance);
-            if(File.Exists(Path.Combine(ETGMod.GameFolder, "wmitfenabled.txt")))
+            new Harmony(GUID).PatchAll();
+            if(File.Exists(Path.Combine(Paths.GameRootPath, "wmitfenabled.txt")))
             {
-                if(bool.TryParse(File.ReadAllText(Path.Combine(ETGMod.GameFolder, "wmitfenabled.txt")), out bool bo))
+                if(bool.TryParse(File.ReadAllText(Path.Combine(Paths.GameRootPath, "wmitfenabled.txt")), out bool bo))
                 {
                     WMITFEnabled = bo;
                 }
                 else
                 {
-                    using (FileStream stream = File.Create(Path.Combine(ETGMod.GameFolder, "wmitfenabled.txt")))
+                    using (FileStream stream = File.Create(Path.Combine(Paths.GameRootPath, "wmitfenabled.txt")))
                     {
                         byte[] b = Encoding.UTF8.GetBytes(bool.TrueString);
                         stream.Write(b, 0, b.Length);
@@ -46,7 +45,7 @@ namespace WMITF
             }
             else
             {
-                using (FileStream stream = File.Create(Path.Combine(ETGMod.GameFolder, "wmitfenabled.txt")))
+                using (FileStream stream = File.Create(Path.Combine(Paths.GameRootPath, "wmitfenabled.txt")))
                 {
                     byte[] b = Encoding.UTF8.GetBytes(bool.TrueString);
                     stream.Write(b, 0, b.Length);
@@ -54,36 +53,41 @@ namespace WMITF
             }
         }
 
-        public static string WMITFAddAmmonomiconModName(Func<EncounterDatabaseEntry, string> orig, EncounterDatabaseEntry self)
+        [HarmonyPatch(typeof(EncounterDatabaseEntry), nameof(EncounterDatabaseEntry.GetModifiedLongDescription))]
+        [HarmonyPostfix]
+        public static void WMITFAddAmmonomiconModName(EncounterDatabaseEntry __instance, ref string __result)
         {
-            string result = orig(self);
             if (WMITFActualModItemDict == null)
             {
                 if (!WMITFGetActualModItemDict())
                 {
-                    return result;
+                    return;
                 }
             }
-            WMITFData match = GetMatch(self);
-            if(match != null && WMITFActualModItemDict.ContainsKey(match) && WMITFActualModItemDict[match] != null && WMITFActualModItemDict[match].Metadata != null && !string.IsNullOrEmpty(WMITFActualModItemDict[match].Metadata.Name))
+            WMITFData match = GetMatch(__instance);
+            if(match != null && WMITFActualModItemDict.ContainsKey(match) && WMITFActualModItemDict[match]?.Info?.Metadata != null && !string.IsNullOrEmpty(WMITFActualModItemDict[match].Info.Metadata.Name))
             {
-                if (result.EndsWith("\n\n")) 
+                if (__result.EndsWith("\n\n")) 
                 {
-                    result += "This item is from " + WMITFActualModItemDict[match].Metadata.Name;
+                    __result += "This item is from " + WMITFActualModItemDict[match].Info.Metadata.Name;
                 }
-                else if (result.EndsWith("\n"))
+                else if (__result.EndsWith("\n"))
                 {
-                    result += "\nThis item is from " + WMITFActualModItemDict[match].Metadata.Name;
+                    __result += "\nThis item is from " + WMITFActualModItemDict[match].Info.Metadata.Name;
                 }
                 else
                 {
-                    result += "\n\nThis item is from " + WMITFActualModItemDict[match].Metadata.Name;
+                    __result += "\n\nThis item is from " + WMITFActualModItemDict[match].Info.Metadata.Name;
                 }
             }
-            return result;
         }
 
-        public override void Start()
+        public void Start()
+        {
+            ETGModMainBehaviour.WaitForGameManagerStart(GMStart);
+        }
+
+        public void GMStart(GameManager manager)
         {
             ETGModConsole.Commands.AddGroup("wmitf");
             ETGModConsole.Commands.GetGroup("wmitf").AddUnit("help", WMITFHelp).AddUnit("toggle", WMITFToggle).AddUnit("refresh", WMITFRefresh).AddUnit("state", WMITFState);
@@ -110,89 +114,98 @@ namespace WMITF
             }
         }
 
-        public static int WMITFAddItemToDict(Func<ItemDB, PickupObject, bool, string, int> orig, ItemDB self, PickupObject item, bool b, string floor)
+        [HarmonyPatch(typeof(ItemDB), nameof(ItemDB.Add), typeof(PickupObject), typeof(bool), typeof(string))]
+        [HarmonyPostfix]
+        public static void WMITFAddItemToDict(PickupObject value)
         {
-            int result = orig(self, item, b, floor);
             StackFrame[] frames = new StackTrace().GetFrames();
             int current = 1;
-            while (frames[current].GetMethod().DeclaringType.Assembly == typeof(ETGMod).Assembly)
+            while (frames[current].GetMethod().DeclaringType.Assembly == typeof(ETGMod).Assembly || frames[current].GetMethod().DeclaringType.Assembly == typeof(Harmony).Assembly ||
+                frames[current].GetMethod().DeclaringType.Assembly == typeof(Hook).Assembly)
             {
                 current++;
                 if(current >= frames.Length)
                 {
-                    return result;
+                    return;
                 }
             }
-            if (!WMITFModItemDict.ContainsKey(item))
+            if (!WMITFModItemDict.ContainsKey(value))
             {
-                WMITFModItemDict.Add(item, frames[current].GetMethod().DeclaringType.Assembly);
+                WMITFModItemDict.Add(value, frames[current].GetMethod().DeclaringType.Assembly);
             }
             if (WMITFFullyInited)
             {
                 WMITFGetActualModItemDict();
             }
-            return result;
         }
 
-        public static void WMITFShowModP(Action<PassiveItem, PlayerController> orig, PassiveItem self, PlayerController player)
+        [HarmonyPatch(typeof(PassiveItem), nameof(PassiveItem.OnEnteredRange))]
+        [HarmonyPostfix]
+        public static void WMITFShowModP(PassiveItem __instance)
         {
-            orig(self, player);
-            WMITFShowMod(self);
+            WMITFShowMod(__instance);
         }
 
-        public static void WMITFHideModP(Action<PassiveItem, PlayerController> orig, PassiveItem self, PlayerController player)
+        [HarmonyPatch(typeof(PassiveItem), nameof(PassiveItem.OnExitRange))]
+        [HarmonyPostfix]
+        public static void WMITFHideModP(PassiveItem __instance)
         {
-            orig(self, player);
-            WMITFHideMod(self);
+            WMITFHideMod(__instance);
         }
 
-        public static void WMITFShowModA(Action<PlayerItem, PlayerController> orig, PlayerItem self, PlayerController player)
+        [HarmonyPatch(typeof(PlayerItem), nameof(PlayerItem.OnEnteredRange))]
+        [HarmonyPostfix]
+        public static void WMITFShowModA(PlayerItem __instance)
         {
-            orig(self, player);
-            WMITFShowMod(self);
+            WMITFShowMod(__instance);
         }
 
-        public static void WMITFHideModA(Action<PlayerItem, PlayerController> orig, PlayerItem self, PlayerController player)
+        [HarmonyPatch(typeof(PlayerItem), nameof(PlayerItem.OnExitRange))]
+        [HarmonyPostfix]
+        public static void WMITFHideModA(PlayerItem __instance)
         {
-            orig(self, player);
-            WMITFHideMod(self);
+            WMITFHideMod(__instance);
         }
 
-        public static void WMITFShowModG(Action<Gun, PlayerController> orig, Gun self, PlayerController player)
+        [HarmonyPatch(typeof(Gun), nameof(Gun.OnEnteredRange))]
+        [HarmonyPostfix]
+        public static void WMITFShowModG(Gun __instance)
         {
-            orig(self, player);
-            WMITFShowMod(self);
+            WMITFShowMod(__instance);
         }
 
-        public static void WMITFHideModG(Action<Gun, PlayerController> orig, Gun self, PlayerController player)
+        [HarmonyPatch(typeof(Gun), nameof(Gun.OnExitRange))]
+        [HarmonyPatch(typeof(Gun), nameof(Gun.Interact))]
+        [HarmonyPostfix]
+        public static void WMITFHideModG(Gun __instance)
         {
-            orig(self, player);
-            WMITFHideMod(self);
+            WMITFHideMod(__instance);
         }
 
-        public static void WMITFShowModR(Action<RewardPedestal, PlayerController> orig, RewardPedestal self, PlayerController player)
+        [HarmonyPatch(typeof(PickupObject), nameof(PickupObject.OnDestroy))]
+        [HarmonyPostfix]
+        public static void WMITFHideModP(PickupObject __instance)
         {
-            orig(self, player);
-            if(self.contents != null)
+            WMITFHideMod(__instance);
+        }
+
+        [HarmonyPatch(typeof(RewardPedestal), nameof(RewardPedestal.OnEnteredRange))]
+        [HarmonyPostfix]
+        public static void WMITFShowModR(RewardPedestal __instance)
+        {
+            if(__instance.contents != null)
             {
-                if(WMITFRewardPedestalSpriteInfo == null)
-                {
-                    WMITFRewardPedestalSpriteInfo = typeof(RewardPedestal).GetField("m_itemDisplaySprite", BindingFlags.NonPublic | BindingFlags.Instance);
-                }
-                WMITFShowMod(self.contents, (tk2dBaseSprite)WMITFRewardPedestalSpriteInfo.GetValue(self));
+                WMITFShowMod(__instance.contents, __instance.m_itemDisplaySprite);
             }
         }
 
-        public static void WMITFHideModR(Action<RewardPedestal, PlayerController> orig, RewardPedestal self, PlayerController player)
+        [HarmonyPatch(typeof(RewardPedestal), nameof(RewardPedestal.OnExitRange))]
+        [HarmonyPostfix]
+        public static void WMITFHideModR(RewardPedestal __instance)
         {
-            orig(self, player);
-            if (self.contents != null)
+            if (__instance.contents != null)
             {
-                if (WMITFRewardPedestalSpriteInfo == null)
-                {
-                    WMITFRewardPedestalSpriteInfo = typeof(RewardPedestal).GetField("m_itemDisplaySprite", BindingFlags.NonPublic | BindingFlags.Instance);
-                }
-                WMITFHideMod(self.contents, ((tk2dBaseSprite)WMITFRewardPedestalSpriteInfo.GetValue(self)).transform);
+                WMITFHideMod(__instance.contents, __instance.m_itemDisplaySprite.transform);
             }
         }
 
@@ -210,10 +223,10 @@ namespace WMITF
                 return;
             }
             WMITFData match = GetMatch(po);
-            if (match != null && WMITFActualModItemDict.ContainsKey(match) && WMITFActualModItemDict[match] != null && WMITFActualModItemDict[match].Metadata != null && !string.IsNullOrEmpty(WMITFActualModItemDict[match].Metadata.Name))
+            if (match != null && WMITFActualModItemDict.ContainsKey(match) && WMITFActualModItemDict[match]?.Info?.Metadata != null && !string.IsNullOrEmpty(WMITFActualModItemDict[match].Info.Metadata.Name))
             {
                 tk2dBaseSprite s = overrideSprite ?? po.sprite;
-                GameUIRoot.Instance.RegisterDefaultLabel(s.transform, new Vector3(s.GetBounds().max.x + 0.1875f, s.GetBounds().min.y, 0f), "This item is from " + WMITFActualModItemDict[match].Metadata.Name);
+                GameUIRoot.Instance.RegisterDefaultLabel(s.transform, new Vector3(s.GetBounds().max.x + 0.1875f, s.GetBounds().min.y, 0f), "This item is from " + WMITFActualModItemDict[match].Info.Metadata.Name);
             }
         }
 
@@ -229,17 +242,17 @@ namespace WMITF
                 ETGModConsole.Log("[WMITF] Error! Tried getting actual mod item dict when normal mod item dict is null!");
                 return false;
             }
-            WMITFActualModItemDict = new Dictionary<WMITFData, ETGModule>();
+            WMITFActualModItemDict = new Dictionary<WMITFData, BaseUnityPlugin>();
             foreach(KeyValuePair<PickupObject, Assembly> pair in WMITFModItemDict)
             {
-                foreach(ETGModule module in ETGMod.AllMods)
+                foreach(PluginInfo module in Chainloader.PluginInfos.Values)
                 {
-                    if(module.GetType().Assembly == pair.Value)
+                    if(module.Instance.GetType().Assembly == pair.Value)
                     {
                         try
                         {
                             WMITFActualModItemDict.Add(new WMITFData { encounterOrDisplayName = pair.Key.EncounterNameOrDisplayName, objectName = pair.Key.name.Replace("(Clone)", ""), type = pair.Key.GetType(), baseItem = pair.Key, id = 
-                                pair.Key.PickupObjectId}, module);
+                                pair.Key.PickupObjectId}, module.Instance);
                         }
                         catch { }
                         break;
@@ -298,7 +311,7 @@ namespace WMITF
         {
             WMITFEnabled = !WMITFEnabled;
             ETGModConsole.Log("WMITF is currently " + (WMITFEnabled ? "enabled" : "disabled") + ".");
-            using (FileStream stream = File.Create(Path.Combine(ETGMod.GameFolder, "wmitfenabled.txt")))
+            using (FileStream stream = File.Create(Path.Combine(Paths.GameRootPath, "wmitfenabled.txt")))
             {
                 byte[] b = Encoding.UTF8.GetBytes(WMITFEnabled.ToString());
                 stream.Write(b, 0, b.Length);
@@ -310,14 +323,9 @@ namespace WMITF
             ETGModConsole.Log("WMITF is currently " + (WMITFEnabled ? "enabled" : "disabled") + ".");
         }
 
-        public override void Exit()
-        {
-        }
-
         public static bool WMITFEnabled;
         public static bool WMITFFullyInited;
         public static Dictionary<PickupObject, Assembly> WMITFModItemDict;
-        public static Dictionary<WMITFData, ETGModule> WMITFActualModItemDict;
-        public static FieldInfo WMITFRewardPedestalSpriteInfo;
+        public static Dictionary<WMITFData, BaseUnityPlugin> WMITFActualModItemDict;
     }
 }
