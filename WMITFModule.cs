@@ -21,7 +21,7 @@ namespace WMITF
     {
         public const string GUID = "spapi.etg.wmitf";
         public const string NAME = "What Mod Is This From (WMITF)";
-        public const string VERSION = "1.0.0";
+        public const string VERSION = "1.0.1";
 
         public void Awake()
         {
