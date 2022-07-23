@@ -21,7 +21,7 @@ namespace WMITF
     {
         public const string GUID = "spapi.etg.wmitf";
         public const string NAME = "What Mod Is This From (WMITF)";
-        public const string VERSION = "1.0.1";
+        public const string VERSION = "1.0.2";
 
         public void Awake()
         {
@@ -184,7 +184,8 @@ namespace WMITF
 
         [HarmonyPatch(typeof(PickupObject), nameof(PickupObject.OnDestroy))]
         [HarmonyPostfix]
-        public static void WMITFHideModP(PickupObject __instance)
+        [HarmonyPrefix]
+        public static void WMITFHideModPO(PickupObject __instance)
         {
             WMITFHideMod(__instance);
         }
@@ -232,7 +233,20 @@ namespace WMITF
 
         public static void WMITFHideMod(PickupObject po, Transform overrideTransform = null)
         {
-            GameUIRoot.Instance.DeregisterDefaultLabel(overrideTransform ?? po.transform);
+            var transform = overrideTransform;
+            if(transform == null)
+            {
+                if (po == null)
+                {
+                    return;
+                }
+                if (po.transform == null)
+                {
+                    return;
+                }
+                transform = po.transform;
+            }
+            GameUIRoot.Instance?.DeregisterDefaultLabel(transform);
         }
 
         public static bool WMITFGetActualModItemDict()
