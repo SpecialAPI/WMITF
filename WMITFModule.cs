@@ -121,7 +121,7 @@ namespace WMITF
             StackFrame[] frames = new StackTrace().GetFrames();
             int current = 1;
             while (frames[current].GetMethod().DeclaringType.Assembly == typeof(ETGMod).Assembly || frames[current].GetMethod().DeclaringType.Assembly == typeof(Harmony).Assembly ||
-                frames[current].GetMethod().DeclaringType.Assembly == typeof(Hook).Assembly)
+                frames[current].GetMethod().DeclaringType.Assembly == typeof(Hook).Assembly || frames[current].GetMethod().DeclaringType.Assembly.GetName().Name == "Alexandria")
             {
                 current++;
                 if(current >= frames.Length)
