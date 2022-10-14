@@ -21,7 +21,7 @@ namespace WMITF
     {
         public const string GUID = "spapi.etg.wmitf";
         public const string NAME = "What Mod Is This From (WMITF)";
-        public const string VERSION = "1.0.2";
+        public const string VERSION = "1.0.4";
 
         public void Awake()
         {
@@ -114,7 +114,7 @@ namespace WMITF
             }
         }
 
-        [HarmonyPatch(typeof(ItemDB), nameof(ItemDB.Add), typeof(PickupObject), typeof(bool), typeof(string))]
+        [HarmonyPatch(typeof(ItemDB), nameof(ItemDB.AddSpecific), typeof(PickupObject), typeof(bool), typeof(string))]
         [HarmonyPostfix]
         public static void WMITFAddItemToDict(PickupObject value)
         {
