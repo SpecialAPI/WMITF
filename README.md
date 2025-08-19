@@ -1,2 +1,2 @@
 # WMITF
- WMITF (What Mod Is This From) is a mod for Enter the Gungeon that shows from which mods modded items are.
+What mod is this from? Shows what mod an item is from when the player approaches that item.
